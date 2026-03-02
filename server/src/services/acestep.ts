@@ -163,38 +163,41 @@ async function buildGradioArgs(params: GenerationParams): Promise<unknown[]> {
     params.repaintingStart ?? 0.0,                                // 15: Repainting Start
     params.repaintingEnd ?? -1,                                   // 16: Repainting End
     params.instruction || 'Fill the audio semantic mask with the style described in the text prompt.', // 17: Instruction
-    params.audioCoverStrength ?? 1.0,                             // 18: LM Codes Strength
-    params.taskType || 'text2music',                              // 19: Task Type
-    params.useAdg ?? false,                                       // 20: Use ADG
-    params.cfgIntervalStart ?? 0.0,                               // 21: CFG Interval Start
-    params.cfgIntervalEnd ?? 1.0,                                 // 22: CFG Interval End
-    params.shift ?? 3.0,                                          // 23: Shift
-    params.inferMethod || 'ode',                                  // 24: Inference Method
-    params.customTimesteps || '',                                 // 25: Custom Timesteps
-    params.audioFormat || 'mp3',                                  // 26: Audio Format
-    params.lmTemperature ?? 0.85,                                 // 27: LM Temperature
-    isThinking,                                                   // 28: Think
-    params.lmCfgScale ?? 2.0,                                    // 29: LM CFG Scale
-    params.lmTopK ?? 0,                                           // 30: LM Top-K
-    params.lmTopP ?? 0.9,                                         // 31: LM Top-P
-    params.lmNegativePrompt || 'NO USER INPUT',                   // 32: LM Negative Prompt
-    useCot ? (params.useCotMetas ?? true) : false,                // 33: CoT Metas
-    useCot ? (params.useCotCaption ?? true) : false,              // 34: CaptionRewrite
-    useCot ? (params.useCotLanguage ?? true) : false,             // 35: CoT Language
-    params.isFormatCaption ?? false,                              // 36: Is Format Caption State
-    params.constrainedDecodingDebug ?? false,                     // 37: Constrained Decoding Debug
-    params.allowLmBatch ?? true,                                  // 38: ParallelThinking
-    params.getScores ?? false,                                    // 39: Auto Score
-    params.getLrc ?? false,                                       // 40: Auto LRC
-    params.scoreScale ?? 0.5,                                     // 41: Quality Score Sensitivity
+    params.audioCoverStrength ?? 1.0,                             // 18: Audio Cover Strength
+    0.0,                                                          // 19: Cover Noise Strength (ACE-Step v1.5 new param, default 0.0)
+    params.taskType || 'text2music',                              // 20: Task Type
+    params.useAdg ?? false,                                       // 21: Use ADG
+    params.cfgIntervalStart ?? 0.0,                               // 22: CFG Interval Start
+    params.cfgIntervalEnd ?? 1.0,                                 // 23: CFG Interval End
+    params.shift ?? 3.0,                                          // 24: Shift
+    params.inferMethod || 'ode',                                  // 25: Inference Method
+    params.customTimesteps || '',                                 // 26: Custom Timesteps
+    params.audioFormat || 'mp3',                                  // 27: Audio Format
+    params.lmTemperature ?? 0.85,                                 // 28: LM Temperature
+    isThinking,                                                   // 29: Think
+    params.lmCfgScale ?? 2.0,                                    // 30: LM CFG Scale
+    params.lmTopK ?? 0,                                           // 31: LM Top-K
+    params.lmTopP ?? 0.9,                                         // 32: LM Top-P
+    params.lmNegativePrompt || 'NO USER INPUT',                   // 33: LM Negative Prompt
+    useCot ? (params.useCotMetas ?? true) : false,                // 34: CoT Metas
+    useCot ? (params.useCotCaption ?? true) : false,              // 35: CaptionRewrite
+    useCot ? (params.useCotLanguage ?? true) : false,             // 36: CoT Language
+    params.isFormatCaption ?? false,                              // 37: Is Format Caption State
+    params.constrainedDecodingDebug ?? false,                     // 38: Constrained Decoding Debug
+    params.allowLmBatch ?? true,                                  // 39: ParallelThinking
+    params.getScores ?? false,                                    // 40: Auto Score
+    // Note: auto_lrc (getLrc) is a hidden Gradio state param — NOT included in the public API args
+    params.scoreScale ?? 0.5,                                     // 41: Quality Score Sensitivity (0.01-1.0)
     params.lmBatchChunkSize ?? 8,                                 // 42: LM Batch Chunk Size
     params.trackName || null,                                     // 43: Track Name
     params.completeTrackClasses || [],                            // 44: Track Names
-    params.autogen ?? false,                                      // 45: AutoGen
-    0,                                                            // 46: Current Batch Index
-    1,                                                            // 47: Total Batches
-    [],                                                           // 48: Batch Queue
-    {},                                                           // 49: Generation Params State
+    false,                                                        // 45: Enable Normalization (ACE-Step v1.5 new param, default false)
+    0.0,                                                          // 46: Normalization DB (ACE-Step v1.5 new param, default 0.0)
+    0.0,                                                          // 47: Latent Shift (ACE-Step v1.5 new param, default 0.0)
+    1.0,                                                          // 48: Latent Rescale (ACE-Step v1.5 new param, default 1.0)
+    params.autogen ?? false,                                      // 49: AutoGen (visible last param)
+    // Note: current_batch_index, total_batches, batch_queue, generation_params_state
+    // are hidden Gradio state variables and must NOT be passed via client.predict()
   ];
 }
 

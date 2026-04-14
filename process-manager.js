@@ -1,5 +1,6 @@
 const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const net = require("net");
 const { setTimeout: sleep } = require("timers/promises");
@@ -10,8 +11,10 @@ const ACESTEP_DIR = process.env.ACESTEP_DIR || path.join(WORKSPACE_ROOT, "ACE-St
 const UI_DIR = process.env.ACE_STEP_UI_DIR || path.join(WORKSPACE_ROOT, "ace-step-ui");
 const UI_SERVER_DIR = path.join(UI_DIR, "server");
 
-const LOG_DIR = process.env.ACE_LOG_DIR || path.join(APP_DIR, "logs");
-const RUN_DIR = process.env.ACE_RUN_DIR || path.join(APP_DIR, "run");
+const DEFAULT_STATE_DIR = path.join(os.homedir(), "Library", "Application Support", "ACE Desktop");
+const STATE_DIR = process.env.ACE_STATE_DIR || DEFAULT_STATE_DIR;
+const LOG_DIR = process.env.ACE_LOG_DIR || path.join(STATE_DIR, "logs");
+const RUN_DIR = process.env.ACE_RUN_DIR || path.join(STATE_DIR, "run");
 const MAX_SERVICE_LOG_BYTES = 5 * 1024 * 1024;
 
 const PORTS = {

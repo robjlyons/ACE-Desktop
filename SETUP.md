@@ -76,4 +76,4 @@ Use this flow to publish a downloadable app release:
    - `git tag v1.0.1`
    - `git push origin v1.0.1`
 4. Wait for the `Release ACE Desktop` workflow to finish on GitHub Actions.
-5. Open the generated GitHub Release and confirm `.dmg` and `.zip` assets are attached.
+5. Open the generated GitHub Release and confirm the `.zip` asset is attached (and `.dmg` if generated).

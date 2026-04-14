@@ -8,14 +8,13 @@ You can download ready-made builds from [GitHub Releases](https://github.com/rob
 
 Each release includes:
 
-- A `.dmg` installer for macOS
-- A `.zip` archive of the app bundle
+- A `.zip` archive of the app bundle (`ACE Desktop.app`)
+- Some releases may also include a `.dmg` installer
 
 Install steps:
 
-1. Download the latest `.dmg`.
-2. Open the disk image.
-3. Drag `ACE Desktop.app` into `Applications`.
+1. Download the latest `.zip` asset from Releases.
+2. Unzip it and move `ACE Desktop.app` into `Applications`.
 
 It orchestrates:
 

@@ -126,6 +126,7 @@
 | **Stem Extraction** | Separate vocals, drums, bass, and other with Demucs |
 | **Video Generator** | Create music videos with Pexels backgrounds |
 | **Gradient Covers** | Beautiful procedural album art (no internet needed) |
+| **Models Tab** | Download preset or custom Hugging Face model repos directly from the UI |
 
 ---
 
@@ -150,6 +151,7 @@
 | **CUDA** | 12.8 (for Windows Portable Package) |
 | **FFmpeg** | For audio processing |
 | **uv** | Python package manager (recommended for standard install) |
+| **huggingface_hub** | Required for in-app model downloads from the Models tab |
 
 ---
 

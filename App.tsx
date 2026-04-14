@@ -23,6 +23,7 @@ import { SearchPage } from './components/SearchPage';
 import { TrainingPanel } from './components/TrainingPanel';
 import { NewsPage } from './components/NewsPage';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { ModelsPanel } from './components/ModelsPanel';
 
 
 function AppContent() {
@@ -288,6 +289,8 @@ function AppContent() {
         setCurrentView('search');
       } else if (path === '/news') {
         setCurrentView('news');
+      } else if (path === '/models') {
+        setCurrentView('models');
       }
     };
 
@@ -1299,6 +1302,9 @@ function AppContent() {
       case 'news':
         return <NewsPage />;
 
+      case 'models':
+        return <ModelsPanel />;
+
       case 'create':
       default:
         return (
@@ -1403,6 +1409,8 @@ function AppContent() {
               window.history.pushState({}, '', '/search');
             } else if (v === 'news') {
               window.history.pushState({}, '', '/news');
+            } else if (v === 'models') {
+              window.history.pushState({}, '', '/models');
             }
             if (isMobile) setShowLeftSidebar(false);
           }}

@@ -544,6 +544,40 @@ export const searchApi = {
   },
 };
 
+export interface ModelPreset {
+  modelId: string;
+  label: string;
+  targetDir: string;
+  type: 'dit' | 'lm' | 'other';
+}
+
+export interface ModelDownloadJob {
+  modelId: string;
+  status: 'queued' | 'downloading' | 'completed' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  targetDir: string;
+}
+
+export interface ModelStatusItem {
+  modelId: string;
+  targetDir: string;
+  downloaded: boolean;
+  activeJob?: ModelDownloadJob;
+}
+
+export const modelsApi = {
+  getPresets: (token: string): Promise<{ presets: ModelPreset[] }> =>
+    api('/api/models/presets', { token }),
+
+  getStatus: (token: string): Promise<{ models: ModelStatusItem[]; jobs: ModelDownloadJob[] }> =>
+    api('/api/models/status', { token }),
+
+  startDownload: (modelId: string, token: string): Promise<{ job: ModelDownloadJob }> =>
+    api('/api/models/download', { method: 'POST', body: { modelId }, token }),
+};
+
 // Contact Form API
 export interface ContactFormData {
   name: string;

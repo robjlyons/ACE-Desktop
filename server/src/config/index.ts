@@ -33,6 +33,11 @@ export const config = {
   storage: {
     provider: 'local' as const,
     audioDir: process.env.AUDIO_DIR || path.join(__dirname, '../../public/audio'),
+    cleanup: {
+      enabled: process.env.AUDIO_CLEANUP_ENABLED !== 'false',
+      retentionDays: parseInt(process.env.AUDIO_RETENTION_DAYS || '14', 10),
+      maxBytes: parseInt(process.env.AUDIO_MAX_BYTES || '10737418240', 10), // 10 GB
+    },
   },
 
   // Training datasets (inside ACE-Step-1.5 so Gradio can access them)

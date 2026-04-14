@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Download, Loader2, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { modelsApi, ModelPreset, ModelStatusItem } from '../services/api';
 
@@ -10,6 +10,7 @@ export const ModelsPanel: React.FC = () => {
   const [customModelId, setCustomModelId] = useState('');
   const [loading, setLoading] = useState(false);
   const [submittingModelId, setSubmittingModelId] = useState<string | null>(null);
+  const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -72,6 +73,23 @@ export const ModelsPanel: React.FC = () => {
     if (!modelId) return;
     await startDownload(modelId);
     setCustomModelId('');
+  };
+
+  const handleDeleteModel = async (modelId: string) => {
+    if (!token) return;
+    if (!confirm(`Delete model "${modelId}" from local checkpoints?`)) return;
+    setDeletingModelId(modelId);
+    setErrorMessage('');
+    setStatusMessage('');
+    try {
+      await modelsApi.deleteModel(modelId, token);
+      setStatusMessage(`Deleted model: ${modelId}`);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to delete model');
+    } finally {
+      setDeletingModelId(null);
+    }
   };
 
   const getModelStatus = (modelId: string) => statusItems.find((item) => item.modelId === modelId);
@@ -164,11 +182,24 @@ export const ModelsPanel: React.FC = () => {
                       {downloading && <Loader2 className="w-4 h-4 animate-spin text-blue-400" />}
                       <button
                         onClick={() => startDownload(preset.modelId)}
-                        disabled={downloading || !!submittingModelId}
+                        disabled={downloading || !!submittingModelId || deletingModelId === preset.modelId}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 disabled:opacity-60"
                       >
                         <Download className="w-3.5 h-3.5" />
                         {completed ? 'Re-download' : downloading ? 'Downloading...' : 'Download'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteModel(preset.modelId)}
+                        disabled={!completed || downloading || deletingModelId === preset.modelId || !!submittingModelId}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-red-600 text-white disabled:opacity-60"
+                        title={completed ? 'Delete local model files' : 'Model not downloaded'}
+                      >
+                        {deletingModelId === preset.modelId ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        Delete
                       </button>
                     </div>
                   </div>

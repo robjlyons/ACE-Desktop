@@ -30,9 +30,18 @@ const ACESTEP_API = config.acestep.apiUrl;
 
 // Resolve ACE-Step path (from env or default relative path)
 function resolveAceStepPath(): string {
+  const isValidAceStepDir = (candidate: string): boolean => {
+    // Avoid false positives (e.g. empty placeholder folders named ACE-Step-1.5).
+    return (
+      existsSync(candidate) &&
+      existsSync(path.join(candidate, 'acestep')) &&
+      (existsSync(path.join(candidate, 'pyproject.toml')) || existsSync(path.join(candidate, 'uv.lock')))
+    );
+  };
+
   const firstExistingDir = (candidates: string[]): string | null => {
     for (const candidate of candidates) {
-      if (existsSync(candidate)) return candidate;
+      if (isValidAceStepDir(candidate)) return candidate;
     }
     return null;
   };
@@ -40,7 +49,7 @@ function resolveAceStepPath(): string {
   const envPath = process.env.ACESTEP_PATH;
   if (envPath) {
     const resolved = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
-    if (existsSync(resolved)) return resolved;
+    if (isValidAceStepDir(resolved)) return resolved;
   }
 
   const resolved = firstExistingDir([
@@ -55,7 +64,8 @@ function resolveAceStepPath(): string {
   ]);
 
   // Keep previous behavior as final fallback for clearer error messaging downstream.
-  return resolved || path.resolve(__dirname, '../../../ACE-Step-1.5');
+  const fallback = path.resolve(__dirname, '../../../ACE-Step-1.5');
+  return resolved || fallback;
 }
 
 // Resolve Python path cross-platform (supports venv and portable installations)
@@ -597,11 +607,12 @@ async function processGenerationViaGradio(
   const audioUrls: string[] = [];
   let actualDuration = 0;
   const audioFormat = params.audioFormat ?? 'mp3';
+  const totalFiles = audioFileObjects.length;
 
   for (const fileObj of audioFileObjects) {
     const origName = fileObj.orig_name || fileObj.path || '';
     const ext = origName.includes('.flac') ? '.flac' : `.${audioFormat}`;
-    const filename = `${jobId}_${audioUrls.length}${ext}`;
+    const filename = buildGeneratedFilename(params, jobId, audioUrls.length, totalFiles, ext);
     const destPath = path.join(AUDIO_DIR, filename);
 
     await downloadGradioAudioFile(fileObj, destPath);
@@ -737,7 +748,8 @@ async function processGenerationViaPython(
     if (params.cfgIntervalStart !== undefined && params.cfgIntervalStart > 0) args.push('--cfg-interval-start', String(params.cfgIntervalStart));
     if (params.cfgIntervalEnd !== undefined && params.cfgIntervalEnd < 1.0) args.push('--cfg-interval-end', String(params.cfgIntervalEnd));
 
-    const result = await runPythonGeneration(args);
+    const timeoutMs = estimatePythonTimeoutMs(params);
+    const result = await runPythonGeneration(args, timeoutMs);
 
     if (!result.success) {
       throw new Error(result.error || 'Generation failed');
@@ -749,9 +761,10 @@ async function processGenerationViaPython(
 
     const audioUrls: string[] = [];
     let actualDuration = 0;
+    const totalFiles = result.audio_paths.length;
     for (const srcPath of result.audio_paths) {
       const ext = srcPath.includes('.flac') ? '.flac' : '.mp3';
-      const filename = `${jobId}_${audioUrls.length}${ext}`;
+      const filename = buildGeneratedFilename(params, jobId, audioUrls.length, totalFiles, ext);
       const destPath = path.join(AUDIO_DIR, filename);
 
       await mkdir(AUDIO_DIR, { recursive: true });
@@ -801,6 +814,58 @@ interface PythonResult {
   audio_paths?: string[];
   elapsed_seconds?: number;
   error?: string;
+}
+
+function toSafeFilenamePart(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[^a-zA-Z0-9 _-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const fallback = sanitized || 'Untitled';
+  return fallback.slice(0, 80);
+}
+
+function deriveSongBaseName(params: GenerationParams): string {
+  const explicitTitle = params.title?.trim();
+  if (explicitTitle) return explicitTitle;
+
+  if (!params.instrumental && params.lyrics) {
+    for (const rawLine of params.lyrics.split('\n')) {
+      const line = rawLine.trim();
+      if (line && !/^\[.*\]$/.test(line)) {
+        return line;
+      }
+    }
+  }
+
+  const source = params.style || params.songDescription || 'Untitled';
+  return source.split(/\s+/).slice(0, 6).join(' ');
+}
+
+function buildGeneratedFilename(
+  params: GenerationParams,
+  jobId: string,
+  index: number,
+  total: number,
+  ext: string,
+): string {
+  const base = toSafeFilenamePart(deriveSongBaseName(params));
+  const variationSuffix = total > 1 ? ` (v${index + 1})` : '';
+  const shortJob = jobId.slice(-6);
+  return `${base}${variationSuffix} - ${shortJob}${ext}`;
+}
+
+function estimatePythonTimeoutMs(params: GenerationParams): number {
+  const durationSec = Math.max(60, params.duration && params.duration > 0 ? params.duration : 60);
+  const batchSize = Math.max(1, Math.min(16, params.batchSize ?? 1));
+
+  // Fallback generation can include model loading + long decode on Apple Silicon.
+  // Scale timeout by requested duration and batch size with conservative bounds.
+  const estimatedMs = (durationSec * 6000 * batchSize) + 360000;
+  const minMs = 900000;   // 15m
+  const maxMs = 2700000;  // 45m
+  return Math.max(minMs, Math.min(maxMs, estimatedMs));
 }
 
 function runPythonGeneration(scriptArgs: string[], timeoutMs = 600000): Promise<PythonResult> {

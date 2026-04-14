@@ -1,6 +1,6 @@
 import path from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
-import { mkdir } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 import { spawn, spawnSync } from 'child_process';
 import { resolvePythonPath } from './acestep.js';
 
@@ -266,4 +266,24 @@ export async function startModelDownload(modelId: string): Promise<DownloadJobSt
   });
 
   return job;
+}
+
+export async function deleteModel(modelId: string): Promise<{ modelId: string; targetDir: string; deleted: boolean }> {
+  validateModelId(modelId);
+
+  const active = activeJobs.get(modelId);
+  if (active && (active.status === 'queued' || active.status === 'downloading')) {
+    throw new Error('Cannot delete model while download is in progress');
+  }
+
+  const targetDir = getTargetDirForModel(modelId);
+  const targetPath = path.join(getCheckpointsDir(), targetDir);
+  await rm(targetPath, { recursive: true, force: true });
+
+  const after = activeJobs.get(modelId);
+  if (after && after.status !== 'downloading' && after.status !== 'queued') {
+    activeJobs.delete(modelId);
+  }
+
+  return { modelId, targetDir, deleted: true };
 }

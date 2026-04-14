@@ -578,6 +578,9 @@ export const modelsApi = {
 
   startDownload: (modelId: string, token: string): Promise<{ job: ModelDownloadJob }> =>
     api('/api/models/download', { method: 'POST', body: { modelId }, token }),
+
+  deleteModel: (modelId: string, token: string): Promise<{ modelId: string; targetDir: string; deleted: boolean }> =>
+    api('/api/models', { method: 'DELETE', body: { modelId }, token }),
 };
 
 // Contact Form API

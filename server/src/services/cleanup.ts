@@ -1,4 +1,5 @@
 import { pool } from '../db/pool.js';
+import { config } from '../config/index.js';
 
 export interface CleanupResult {
   deleted: number;
@@ -6,8 +7,14 @@ export interface CleanupResult {
 }
 
 export async function runCleanupJob(): Promise<CleanupResult> {
-  // Local storage doesn't have expiring files - no cleanup needed
-  console.log('Cleanup job: No action needed for local storage');
+  if (!config.storage.cleanup.enabled) {
+    console.log('Cleanup job: local file retention cleanup disabled');
+    return { deleted: 0, errors: 0 };
+  }
+
+  // Keep local audio files by default; they are user-visible assets and removed
+  // explicitly from Library deletion flows.
+  console.log('Cleanup job: skipping local audio deletion (library-managed files)');
   return { deleted: 0, errors: 0 };
 }
 

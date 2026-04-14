@@ -375,6 +375,11 @@ DATABASE_PATH=./data/acestep.db
 
 # Optional: Pexels API for video backgrounds
 PEXELS_API_KEY=your_key_here
+
+# Optional: local audio cleanup safeguards (defaults shown)
+AUDIO_CLEANUP_ENABLED=true
+AUDIO_RETENTION_DAYS=14
+AUDIO_MAX_BYTES=10737418240
 ```
 
 ---

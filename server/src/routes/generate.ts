@@ -72,6 +72,151 @@ function autoTitle(params: { title?: string; lyrics?: string; instrumental?: boo
   return 'Untitled';
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function createSongsFromResult(
+  userId: string,
+  params: any,
+  result: { audioUrls: string[]; duration?: number; bpm?: number; keyScale?: string; timeSignature?: string },
+): Promise<string[]> {
+  const audioUrls = result.audioUrls.filter((url: string) => {
+    const lower = url.toLowerCase();
+    return lower.endsWith('.mp3') || lower.endsWith('.flac') || lower.endsWith('.wav');
+  });
+  const localPaths: string[] = [];
+  const storage = getStorageProvider();
+
+  for (let i = 0; i < audioUrls.length; i++) {
+    const audioUrl = audioUrls[i];
+    const variationSuffix = audioUrls.length > 1 ? ` (v${i + 1})` : '';
+    const songTitle = autoTitle(params) + variationSuffix;
+    const songId = generateUUID();
+
+    try {
+      const { buffer } = await downloadAudioToBuffer(audioUrl);
+      const ext = audioUrl.includes('.flac') ? '.flac' : '.mp3';
+      const storageKey = `${userId}/${songId}${ext}`;
+      await storage.upload(storageKey, buffer, `audio/${ext.slice(1)}`);
+      const storedPath = storage.getPublicUrl(storageKey);
+
+      await pool.query(
+        `INSERT INTO songs (id, user_id, title, lyrics, style, caption, audio_url,
+                            duration, bpm, key_scale, time_signature, tags, is_public, generation_params,
+                            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`,
+        [
+          songId,
+          userId,
+          songTitle,
+          params.instrumental ? '[Instrumental]' : params.lyrics,
+          params.style,
+          params.style,
+          storedPath,
+          result.duration && result.duration > 0 ? result.duration : (params.duration && params.duration > 0 ? params.duration : 0),
+          result.bpm || params.bpm,
+          result.keyScale || params.keyScale,
+          result.timeSignature || params.timeSignature,
+          JSON.stringify([]),
+          JSON.stringify(params),
+        ]
+      );
+
+      localPaths.push(storedPath);
+
+      // Remove temporary generation artifact once persisted into library storage.
+      if (audioUrl.startsWith('/audio/') && audioUrl !== storedPath) {
+        const tempKey = audioUrl.replace('/audio/', '');
+        try {
+          await storage.delete(tempKey);
+        } catch (cleanupError) {
+          console.warn(`Failed to delete temp audio ${audioUrl}:`, cleanupError);
+        }
+      }
+    } catch (downloadError) {
+      console.error(`Failed to persist generated audio ${i + 1}:`, downloadError);
+      await pool.query(
+        `INSERT INTO songs (id, user_id, title, lyrics, style, caption, audio_url,
+                            duration, bpm, key_scale, time_signature, tags, is_public, generation_params,
+                            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`,
+        [
+          songId,
+          userId,
+          songTitle,
+          params.instrumental ? '[Instrumental]' : params.lyrics,
+          params.style,
+          params.style,
+          audioUrl,
+          result.duration && result.duration > 0 ? result.duration : (params.duration && params.duration > 0 ? params.duration : 0),
+          result.bpm || params.bpm,
+          result.keyScale || params.keyScale,
+          result.timeSignature || params.timeSignature,
+          JSON.stringify([]),
+          JSON.stringify(params),
+        ]
+      );
+      localPaths.push(audioUrl);
+    }
+  }
+
+  return localPaths;
+}
+
+async function finalizeGenerationInBackground(localJobId: string): Promise<void> {
+  for (let attempt = 0; attempt < 900; attempt++) {
+    const dbResult = await pool.query(
+      `SELECT id, user_id, acestep_task_id, status, params
+       FROM generation_jobs
+       WHERE id = ?`,
+      [localJobId]
+    );
+    if (dbResult.rows.length === 0) return;
+
+    const job = dbResult.rows[0];
+    if (!job.acestep_task_id) return;
+    if (!['queued', 'running', 'pending'].includes(job.status)) return;
+
+    let aceStatus;
+    try {
+      aceStatus = await getJobStatus(job.acestep_task_id);
+    } catch {
+      await sleep(2000);
+      continue;
+    }
+
+    if (aceStatus.status === 'queued' || aceStatus.status === 'running') {
+      await sleep(2000);
+      continue;
+    }
+
+    let updateQuery = `UPDATE generation_jobs SET status = ?, updated_at = datetime('now')`;
+    const updateParams: unknown[] = [aceStatus.status];
+    if (aceStatus.status === 'succeeded' && aceStatus.result) {
+      updateQuery += `, result = ?`;
+      updateParams.push(JSON.stringify(aceStatus.result));
+    } else if (aceStatus.status === 'failed' && aceStatus.error) {
+      updateQuery += `, error = ?`;
+      updateParams.push(aceStatus.error);
+    }
+    updateQuery += ` WHERE id = ? AND status IN ('queued','running','pending')`;
+    updateParams.push(localJobId);
+
+    const updateResult = await pool.query(updateQuery, updateParams);
+    if (updateResult.rowCount === 0) return;
+
+    if (aceStatus.status === 'succeeded' && aceStatus.result) {
+      const params = typeof job.params === 'string' ? JSON.parse(job.params) : job.params;
+      const localPaths = await createSongsFromResult(job.user_id, params, aceStatus.result);
+      aceStatus.result.audioUrls = localPaths;
+    }
+
+    cleanupJob(job.acestep_task_id);
+    return;
+  }
+}
+
 const audioUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
@@ -378,6 +523,11 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       [hfJobId, localJobId]
     );
 
+    // Keep DB/library in sync even if client polling is interrupted.
+    void finalizeGenerationInBackground(localJobId).catch((error) => {
+      console.error(`Background finalizer failed for job ${localJobId}:`, error);
+    });
+
     res.json({
       jobId: localJobId,
       status: 'queued',
@@ -437,78 +587,7 @@ router.get('/status/:jobId', authMiddleware, async (req: AuthenticatedRequest, r
           // If succeeded AND we were the first to update (optimistic lock), create song records
           if (aceStatus.status === 'succeeded' && aceStatus.result && wasUpdated) {
             const params = typeof job.params === 'string' ? JSON.parse(job.params) : job.params;
-            const audioUrls = aceStatus.result.audioUrls.filter((url: string) => {
-              const lower = url.toLowerCase();
-              return lower.endsWith('.mp3') || lower.endsWith('.flac') || lower.endsWith('.wav');
-            });
-            const localPaths: string[] = [];
-            const storage = getStorageProvider();
-
-            for (let i = 0; i < audioUrls.length; i++) {
-              const audioUrl = audioUrls[i];
-              const variationSuffix = audioUrls.length > 1 ? ` (v${i + 1})` : '';
-              const songTitle = autoTitle(params) + variationSuffix;
-
-              const songId = generateUUID();
-
-              try {
-                const { buffer } = await downloadAudioToBuffer(audioUrl);
-                const ext = audioUrl.includes('.flac') ? '.flac' : '.mp3';
-                const storageKey = `${req.user!.id}/${songId}${ext}`;
-                await storage.upload(storageKey, buffer, `audio/${ext.slice(1)}`);
-                const storedPath = storage.getPublicUrl(storageKey);
-
-                await pool.query(
-                  `INSERT INTO songs (id, user_id, title, lyrics, style, caption, audio_url,
-                                      duration, bpm, key_scale, time_signature, tags, is_public, generation_params,
-                                      created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`,
-                  [
-                    songId,
-                    req.user!.id,
-                    songTitle,
-                    params.instrumental ? '[Instrumental]' : params.lyrics,
-                    params.style,
-                    params.style,
-                    storedPath,
-                    aceStatus.result.duration && aceStatus.result.duration > 0 ? aceStatus.result.duration : (params.duration && params.duration > 0 ? params.duration : 0),
-                    aceStatus.result.bpm || params.bpm,
-                    aceStatus.result.keyScale || params.keyScale,
-                    aceStatus.result.timeSignature || params.timeSignature,
-                    JSON.stringify([]),
-                    JSON.stringify(params),
-                  ]
-                );
-
-                localPaths.push(storedPath);
-              } catch (downloadError) {
-                console.error(`Failed to download audio ${i + 1}:`, downloadError);
-                // Still create song record with remote URL
-                await pool.query(
-                  `INSERT INTO songs (id, user_id, title, lyrics, style, caption, audio_url,
-                                      duration, bpm, key_scale, time_signature, tags, is_public, generation_params,
-                                      created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`,
-                  [
-                    songId,
-                    req.user!.id,
-                    songTitle,
-                    params.instrumental ? '[Instrumental]' : params.lyrics,
-                    params.style,
-                    params.style,
-                    audioUrl,
-                    aceStatus.result.duration && aceStatus.result.duration > 0 ? aceStatus.result.duration : (params.duration && params.duration > 0 ? params.duration : 0),
-                    aceStatus.result.bpm || params.bpm,
-                    aceStatus.result.keyScale || params.keyScale,
-                    aceStatus.result.timeSignature || params.timeSignature,
-                    JSON.stringify([]),
-                    JSON.stringify(params),
-                  ]
-                );
-                localPaths.push(audioUrl);
-              }
-            }
-
+            const localPaths = await createSongsFromResult(req.user!.id, params, aceStatus.result);
             aceStatus.result.audioUrls = localPaths;
             cleanupJob(job.acestep_task_id);
           }

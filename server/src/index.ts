@@ -31,6 +31,16 @@ import './db/migrate.js';
 
 const app = express();
 
+async function executeCleanupCycle(trigger: string): Promise<void> {
+  console.log(`Running ${trigger} cleanup job...`);
+  try {
+    await runCleanupJob();
+    await cleanupDeletedSongs();
+  } catch (error) {
+    console.error(`${trigger} cleanup job failed:`, error);
+  }
+}
+
 // Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -418,13 +428,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 // Schedule cleanup job to run daily at 3 AM
 cron.schedule('0 3 * * *', async () => {
-  console.log('Running scheduled cleanup job...');
-  try {
-    await runCleanupJob();
-    await cleanupDeletedSongs();
-  } catch (error) {
-    console.error('Cleanup job failed:', error);
-  }
+  await executeCleanupCycle('scheduled');
 });
 
 // Start server on all interfaces for LAN access
@@ -432,16 +436,21 @@ app.listen(config.port, '0.0.0.0', () => {
   console.log(`ACE-Step UI Server running on http://localhost:${config.port}`);
   console.log(`Environment: ${config.nodeEnv}`);
   console.log(`ACE-Step API: ${config.acestep.apiUrl}`);
+  void executeCleanupCycle('startup');
 
   // Show LAN access info
   import('os').then(os => {
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-      for (const net of nets[name] || []) {
-        if (net.family === 'IPv4' && !net.internal) {
-          console.log(`LAN access: http://${net.address}:${config.port}`);
+    try {
+      const nets = os.networkInterfaces();
+      for (const name of Object.keys(nets)) {
+        for (const net of nets[name] || []) {
+          if (net.family === 'IPv4' && !net.internal) {
+            console.log(`LAN access: http://${net.address}:${config.port}`);
+          }
         }
       }
+    } catch (error) {
+      console.warn('LAN interface detection unavailable:', error);
     }
   });
 });

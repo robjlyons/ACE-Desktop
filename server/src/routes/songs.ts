@@ -1,11 +1,117 @@
 import { Router, Response } from 'express';
 import { Readable } from 'node:stream';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import { readdir } from 'fs/promises';
 import { pool } from '../db/pool.js';
 import { authMiddleware, optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/auth.js';
 import { getStorageProvider } from '../services/storage/factory.js';
+import { config } from '../config/index.js';
 
 const router = Router();
+
+const SUPPORTED_AUDIO_EXTS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus', '.webm']);
+
+interface LocalAudioEntry {
+  relativePath: string;
+  absolutePath: string;
+}
+
+async function walkAudioFiles(baseDir: string, currentDir: string): Promise<LocalAudioEntry[]> {
+  let entries;
+  try {
+    entries = await readdir(currentDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const files: LocalAudioEntry[] = [];
+  for (const entry of entries) {
+    const absolutePath = path.join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await walkAudioFiles(baseDir, absolutePath));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+
+    const ext = path.extname(entry.name).toLowerCase();
+    if (!SUPPORTED_AUDIO_EXTS.has(ext)) continue;
+
+    files.push({
+      absolutePath,
+      relativePath: path.relative(baseDir, absolutePath).replace(/\\/g, '/'),
+    });
+  }
+
+  return files;
+}
+
+function titleFromRelativePath(relativePath: string): string {
+  const base = path.basename(relativePath).replace(path.extname(relativePath), '');
+  const clean = base.replace(/[_-]+/g, ' ').trim();
+  return clean.length > 0 ? clean.slice(0, 120) : 'Imported track';
+}
+
+function isTransientGeneratedAudio(relativePath: string): boolean {
+  // Temporary outputs from generation service, later copied into user-scoped storage.
+  // Example: job_1776176869395_7fqo7au_0.mp3
+  return /^job_\d+_[a-z0-9]+_\d+\.(mp3|flac|wav|ogg|m4a|aac|opus|webm)$/i.test(path.basename(relativePath));
+}
+
+async function syncLocalAudioToSongs(userId: string): Promise<number> {
+  const audioDir = config.storage.audioDir;
+  const audioFiles = await walkAudioFiles(audioDir, audioDir);
+  if (audioFiles.length === 0) return 0;
+
+  const existing = await pool.query(
+    `SELECT audio_url
+     FROM songs
+     WHERE user_id = ? AND audio_url IS NOT NULL AND audio_url LIKE '/audio/%'`,
+    [userId]
+  );
+
+  const existingUrls = new Set<string>();
+  for (const row of existing.rows) {
+    const url = row.audio_url as string | null;
+    if (url) existingUrls.add(url);
+  }
+
+  let inserted = 0;
+  for (const file of audioFiles) {
+    if (isTransientGeneratedAudio(file.relativePath)) continue;
+
+    const audioUrl = `/audio/${file.relativePath}`;
+    if (existingUrls.has(audioUrl)) continue;
+
+    await pool.query(
+      `INSERT INTO songs (
+        id, user_id, title, lyrics, style, caption, cover_url, audio_url,
+        duration, bpm, key_scale, time_signature, tags, is_public,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [
+        uuidv4(),
+        userId,
+        titleFromRelativePath(file.relativePath),
+        '[Imported]',
+        'Imported',
+        'Imported from local audio folder',
+        null,
+        audioUrl,
+        0,
+        null,
+        null,
+        null,
+        JSON.stringify([]),
+        1,
+      ]
+    );
+    existingUrls.add(audioUrl);
+    inserted += 1;
+  }
+
+  return inserted;
+}
 
 // Helper: resolve audio URL (generates signed URL for S3)
 async function resolveAudioUrl(audioUrl: string | null): Promise<string | null> {
@@ -104,6 +210,11 @@ router.get('/:id/audio', optionalAuthMiddleware, async (req: AuthenticatedReques
 // Get user's songs
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const importedCount = await syncLocalAudioToSongs(req.user!.id);
+    if (importedCount > 0) {
+      console.log(`Songs sync: imported ${importedCount} local audio files for user ${req.user!.id}`);
+    }
+
     const result = await pool.query(
       `SELECT s.id, s.title, s.lyrics, s.style, s.caption, s.cover_url, s.audio_url,
               s.duration, s.bpm, s.key_scale, s.time_signature, s.tags, s.is_public, 

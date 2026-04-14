@@ -134,13 +134,29 @@ export const ModelsPanel: React.FC = () => {
                 const downloading = status?.activeJob?.status === 'queued' || status?.activeJob?.status === 'downloading';
                 const completed = status?.downloaded;
                 const failed = status?.activeJob?.status === 'failed';
+                const progress = status?.activeJob?.progress ?? (completed ? 100 : 0);
+                const stage = status?.activeJob?.stage;
 
                 return (
                   <div key={preset.modelId} className="px-4 py-4 flex items-center justify-between gap-4 bg-white dark:bg-suno-DEFAULT">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-zinc-900 dark:text-white">{preset.label}</div>
                       <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{preset.modelId}</div>
                       <div className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">Target: checkpoints/{preset.targetDir}</div>
+                      {(downloading || failed || completed) && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">
+                            <span className="truncate mr-3">{stage || (downloading ? 'Downloading...' : completed ? 'Ready' : 'Failed')}</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 ${failed ? 'bg-red-500' : completed ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                              style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       {completed && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}

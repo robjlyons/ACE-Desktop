@@ -558,6 +558,8 @@ export interface ModelDownloadJob {
   finishedAt?: string;
   error?: string;
   targetDir: string;
+  progress?: number;
+  stage?: string;
 }
 
 export interface ModelStatusItem {

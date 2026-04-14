@@ -18,6 +18,8 @@ export interface DownloadJobStatus {
   finishedAt?: string;
   error?: string;
   targetDir: string;
+  progress?: number;
+  stage?: string;
 }
 
 const MODEL_ID_REGEX = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -120,6 +122,35 @@ export function getActiveJobs(): DownloadJobStatus[] {
   return Array.from(activeJobs.values());
 }
 
+function extractProgressAndStage(chunk: string): { progress?: number; stage?: string } {
+  const lines = chunk
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return {};
+  const lastLine = lines[lines.length - 1];
+
+  const percentMatch = lastLine.match(/(\d{1,3})%/);
+  if (percentMatch) {
+    const progress = Math.min(100, Math.max(0, Number(percentMatch[1])));
+    return { progress, stage: lastLine.slice(0, 180) };
+  }
+
+  // Fallback: "x/y" style output
+  const fractionMatch = lastLine.match(/(\d+)\s*\/\s*(\d+)/);
+  if (fractionMatch) {
+    const done = Number(fractionMatch[1]);
+    const total = Number(fractionMatch[2]);
+    if (total > 0) {
+      const progress = Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+      return { progress, stage: lastLine.slice(0, 180) };
+    }
+  }
+
+  return { stage: lastLine.slice(0, 180) };
+}
+
 export async function startModelDownload(modelId: string): Promise<DownloadJobStatus> {
   validateModelId(modelId);
 
@@ -148,6 +179,8 @@ export async function startModelDownload(modelId: string): Promise<DownloadJobSt
     targetDir,
     status: 'queued',
     startedAt: new Date().toISOString(),
+    progress: 0,
+    stage: 'Queued',
   };
   activeJobs.set(modelId, job);
 
@@ -173,15 +206,38 @@ export async function startModelDownload(modelId: string): Promise<DownloadJobSt
 
   let stderr = '';
   proc.stderr.on('data', (data: Buffer) => {
-    stderr += data.toString();
+    const chunk = data.toString();
+    stderr += chunk;
+    const parsed = extractProgressAndStage(chunk);
+    if (parsed.progress !== undefined) {
+      job.progress = parsed.progress;
+    }
+    if (parsed.stage) {
+      job.stage = parsed.stage;
+    }
+    activeJobs.set(modelId, { ...job });
+  });
+
+  proc.stdout.on('data', (data: Buffer) => {
+    const parsed = extractProgressAndStage(data.toString());
+    if (parsed.progress !== undefined) {
+      job.progress = parsed.progress;
+    }
+    if (parsed.stage) {
+      job.stage = parsed.stage;
+    }
+    activeJobs.set(modelId, { ...job });
   });
 
   proc.on('close', (code) => {
     if (code === 0 && isDownloaded(modelId)) {
       job.status = 'completed';
+      job.progress = 100;
+      job.stage = 'Download complete';
     } else {
       job.status = 'failed';
       job.error = stderr.trim() || `Download process exited with code ${code}`;
+      job.stage = 'Download failed';
     }
     job.finishedAt = new Date().toISOString();
     activeJobs.set(modelId, job);
@@ -190,6 +246,7 @@ export async function startModelDownload(modelId: string): Promise<DownloadJobSt
   proc.on('error', (err) => {
     job.status = 'failed';
     job.error = err.message;
+    job.stage = 'Download failed';
     job.finishedAt = new Date().toISOString();
     activeJobs.set(modelId, job);
   });

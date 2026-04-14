@@ -6,9 +6,42 @@ const net = require("net");
 const { setTimeout: sleep } = require("timers/promises");
 
 const APP_DIR = __dirname;
-const WORKSPACE_ROOT = process.env.ACE_WORKSPACE_ROOT || path.resolve(APP_DIR, "..");
-const ACESTEP_DIR = process.env.ACESTEP_DIR || path.join(WORKSPACE_ROOT, "ACE-Step-1.5");
-const UI_DIR = process.env.ACE_STEP_UI_DIR || path.join(WORKSPACE_ROOT, "ace-step-ui");
+
+function firstExistingDir(candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+const WORKSPACE_ROOT = firstExistingDir([
+  process.env.ACE_WORKSPACE_ROOT,
+  path.resolve(APP_DIR, ".."),
+  path.join(os.homedir(), "Documents", "ACE"),
+  path.join(os.homedir(), "ACE"),
+]);
+
+const ACESTEP_DIR = firstExistingDir([
+  process.env.ACESTEP_DIR,
+  WORKSPACE_ROOT ? path.join(WORKSPACE_ROOT, "ACE-Step-1.5") : null,
+  path.join(os.homedir(), "Documents", "ACE-Step-1.5"),
+  path.join(os.homedir(), "Documents", "ACE", "ACE-Step-1.5"),
+  path.join(os.homedir(), "ACE-Step-1.5"),
+  path.join(os.homedir(), "ACE", "ACE-Step-1.5"),
+]) || (WORKSPACE_ROOT ? path.join(WORKSPACE_ROOT, "ACE-Step-1.5") : path.join(os.homedir(), "ACE-Step-1.5"));
+
+const UI_DIR = firstExistingDir([
+  process.env.ACE_STEP_UI_DIR,
+  WORKSPACE_ROOT ? path.join(WORKSPACE_ROOT, "ace-step-ui") : null,
+  path.join(os.homedir(), "Documents", "ace-step-ui"),
+  path.join(os.homedir(), "Documents", "ACE", "ace-step-ui"),
+  path.join(os.homedir(), "ace-step-ui"),
+  path.join(os.homedir(), "ACE", "ace-step-ui"),
+]) || (WORKSPACE_ROOT ? path.join(WORKSPACE_ROOT, "ace-step-ui") : path.join(os.homedir(), "ace-step-ui"));
+
 const UI_SERVER_DIR = path.join(UI_DIR, "server");
 
 const DEFAULT_STATE_DIR = path.join(os.homedir(), "Library", "Application Support", "ACE Desktop");
@@ -51,7 +84,10 @@ function ensureDirsExist() {
   const required = [ACESTEP_DIR, UI_DIR, UI_SERVER_DIR];
   for (const dirPath of required) {
     if (!fs.existsSync(dirPath)) {
-      throw new Error(`Missing required directory: ${dirPath}`);
+      throw new Error(
+        `Missing required directory: ${dirPath}\n` +
+        "Set ACESTEP_DIR and ACE_STEP_UI_DIR in your environment if your folders are in a custom location."
+      );
     }
   }
 }
@@ -225,7 +261,7 @@ async function startAll(options = {}) {
     "bash",
     [
       "-lc",
-      `cd "${ACESTEP_DIR}" && ACESTEP_LM_BACKEND=mlx TOKENIZERS_PARALLELISM=false uv run acestep-api --host 127.0.0.1 --port ${PORTS.api}`,
+      `cd "${ACESTEP_DIR}" && ACESTEP_PATH="${ACESTEP_DIR}" ACESTEP_LM_BACKEND=mlx TOKENIZERS_PARALLELISM=false uv run acestep-api --host 127.0.0.1 --port ${PORTS.api}`,
     ],
     { cwd: ACESTEP_DIR }
   );
@@ -236,7 +272,7 @@ async function startAll(options = {}) {
     "bash",
     [
       "-lc",
-      `cd "${UI_SERVER_DIR}" && npm run build && PORT=${PORTS.backend} ACESTEP_API_URL=http://127.0.0.1:${PORTS.api} npm run start`,
+      `cd "${UI_SERVER_DIR}" && npm run build && PORT=${PORTS.backend} ACESTEP_PATH="${ACESTEP_DIR}" ACESTEP_API_URL=http://127.0.0.1:${PORTS.api} npm run start`,
     ],
     { cwd: UI_SERVER_DIR }
   );

@@ -71,9 +71,15 @@ Artifacts are produced in `dist/`:
 Use this flow to publish a downloadable app release:
 
 1. Ensure `ace-desktop/package.json` has the intended version.
-2. Commit and push all release-related changes to `main`.
-3. Create a tag matching the release workflow pattern, for example:
+2. Configure required GitHub repository secrets for signing/notarization:
+   - `CSC_LINK`: Base64-encoded Developer ID Application `.p12` certificate.
+   - `CSC_KEY_PASSWORD`: Password for the `.p12` certificate.
+   - `APPLE_API_KEY`: Base64-encoded App Store Connect API key file contents (`.p8`).
+   - `APPLE_API_KEY_ID`: App Store Connect API key ID.
+   - `APPLE_API_ISSUER`: App Store Connect issuer ID.
+3. Commit and push all release-related changes to `release-artifacts-main`.
+4. Create a tag matching the release workflow pattern, for example:
    - `git tag v1.0.1`
    - `git push origin v1.0.1`
-4. Wait for the `Release ACE Desktop` workflow to finish on GitHub Actions.
-5. Open the generated GitHub Release and confirm the `.zip` asset is attached (and `.dmg` if generated).
+5. Wait for the `Release ACE Desktop` workflow to finish on GitHub Actions.
+6. Open the generated GitHub Release and confirm signed/notarized `.zip` and `.dmg` assets are attached.

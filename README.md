@@ -1,56 +1,86 @@
 # ACE Desktop
 
-Electron desktop shell for ACE that starts all local services and opens an embedded window.
+ACE Desktop is a macOS Electron app that launches the ACE local stack and opens it in a native desktop window (no browser required).
 
-## Repository layout for other users
+It orchestrates:
 
-This project assumes the following sibling folders by default:
+- `ACE-Step-1.5` API server
+- `ace-step-ui` backend
+- `ace-step-ui` frontend
 
-- `ACE-Step-1.5`
-- `ace-step-ui`
-- `ace-desktop` (this app)
+with startup checks, health checks, logs, and clean shutdown.
 
-Example:
+## Requirements
+
+- macOS (Apple Silicon recommended)
+- Node.js + npm
+- `uv` installed and available in your `PATH`
+- Local copies of:
+  - `ACE-Step-1.5`
+  - `ace-step-ui`
+
+## Expected Folder Layout
+
+By default, this repo expects sibling folders:
 
 ```text
-your-workspace/
+workspace/
   ACE-Step-1.5/
   ace-step-ui/
   ace-desktop/
 ```
 
-You can override paths and ports with environment variables from `.env.example`.
+If your layout is different, set overrides using `.env.example`.
 
-## Run in development
+## Install
 
 ```bash
 cd ace-desktop
+npm install
+```
+
+## Launch (Development)
+
+```bash
 npm run dev
 ```
 
-## Build macOS app
+This opens the native ACE Desktop window and starts:
+
+- API: `127.0.0.1:8001`
+- Backend: `127.0.0.1:3001`
+- Frontend: `127.0.0.1:3000`
+
+## Build the macOS App
 
 ```bash
-cd ace-desktop
 npm run build:mac
 ```
 
-Build artifacts are generated under `dist/`.
+Build outputs are created in `dist/` (including `.dmg` and `.zip`).
 
-## What it starts
+## Logs and Runtime State
 
-- ACE API: `127.0.0.1:8001`
-- UI backend: `127.0.0.1:3001`
-- UI frontend: `127.0.0.1:3000`
+- Logs: `logs/`
+- PID files: `run/`
 
-## Logs and runtime state
+## Configuration
 
-- Logs: `ace-desktop/logs/`
-- PID files: `ace-desktop/run/`
+Copy `.env.example` to `.env` and set any overrides you need:
 
-## GitHub-ready notes
+- `ACE_WORKSPACE_ROOT`
+- `ACESTEP_DIR`
+- `ACE_STEP_UI_DIR`
+- `ACE_API_PORT`
+- `ACE_BACKEND_PORT`
+- `ACE_FRONTEND_PORT`
 
-- Commit this `ace-desktop` folder as the app repo.
-- Keep `node_modules`, `dist`, `logs`, and `run` out of git via `.gitignore`.
-- Include installation notes that users must also clone `ACE-Step-1.5` and `ace-step-ui`.
-- For a step-by-step install and build flow, see `SETUP.md`.
+## Troubleshooting
+
+- Port conflict errors: stop conflicting local services or change `ACE_*_PORT`.
+- Startup failures: check files under `logs/`.
+- Stale processes: remove `run/*.pid` and restart.
+
+## Additional Setup Notes
+
+See `SETUP.md` for full first-time setup and packaging guidance.

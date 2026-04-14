@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import { pool } from '../db/pool.js';
 import { generateUUID } from '../db/sqlite.js';
 import { config } from '../config/index.js';
@@ -21,6 +22,31 @@ import {
 import { getStorageProvider } from '../services/storage/factory.js';
 
 const router = Router();
+
+function resolveAceStepDir(): string {
+  const firstExistingDir = (candidates: string[]): string | null => {
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    return null;
+  };
+
+  const envPath = process.env.ACESTEP_PATH;
+  if (envPath) {
+    const resolved = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    if (existsSync(resolved)) return resolved;
+  }
+
+  const fileDir = path.dirname(fileURLToPath(import.meta.url));
+  const resolved = firstExistingDir([
+    path.resolve(process.cwd(), '../ACE-Step-1.5'),
+    path.resolve(process.cwd(), '../../ACE-Step-1.5'),
+    path.resolve(fileDir, '../../../ACE-Step-1.5'),
+    path.resolve(fileDir, '../../../../ACE-Step-1.5'),
+  ]);
+
+  return resolved || path.resolve(fileDir, '../../../ACE-Step-1.5');
+}
 
 // Auto-generate a song title from lyrics or style when none is provided
 function autoTitle(params: { title?: string; lyrics?: string; instrumental?: boolean; style?: string; songDescription?: string }): string {
@@ -598,7 +624,7 @@ router.get('/endpoints', authMiddleware, async (_req: AuthenticatedRequest, res:
 
 router.get('/models', async (_req, res: Response) => {
   try {
-    const ACESTEP_DIR = process.env.ACESTEP_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../ACE-Step-1.5');
+    const ACESTEP_DIR = resolveAceStepDir();
     const checkpointsDir = path.join(ACESTEP_DIR, 'checkpoints');
 
     // All known DiT models from Gradio's model_downloader.py registry:
@@ -705,7 +731,7 @@ router.get('/health', async (_req, res: Response) => {
 router.get('/limits', async (_req, res: Response) => {
   try {
     const { spawn } = await import('child_process');
-    const ACESTEP_DIR = process.env.ACESTEP_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../ACE-Step-1.5');
+    const ACESTEP_DIR = resolveAceStepDir();
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const SCRIPTS_DIR = path.join(__dirname, '../../scripts');
@@ -836,7 +862,7 @@ router.post('/format', authMiddleware, async (req: AuthenticatedRequest, res: Re
 
     // Fallback: Python spawn (only reached when REST API is unreachable)
     const { spawn } = await import('child_process');
-    const ACESTEP_DIR = process.env.ACESTEP_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../ACE-Step-1.5');
+    const ACESTEP_DIR = resolveAceStepDir();
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const SCRIPTS_DIR = path.join(__dirname, '../../scripts');

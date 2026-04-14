@@ -30,12 +30,32 @@ const ACESTEP_API = config.acestep.apiUrl;
 
 // Resolve ACE-Step path (from env or default relative path)
 function resolveAceStepPath(): string {
+  const firstExistingDir = (candidates: string[]): string | null => {
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    return null;
+  };
+
   const envPath = process.env.ACESTEP_PATH;
   if (envPath) {
-    return path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    const resolved = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    if (existsSync(resolved)) return resolved;
   }
-  // Default: sibling directory (server/src/services -> ../../../ACE-Step-1.5 = app/ACE-Step-1.5)
-  return path.resolve(__dirname, '../../../ACE-Step-1.5');
+
+  const resolved = firstExistingDir([
+    // Common runtime cwd patterns
+    path.resolve(process.cwd(), '../ACE-Step-1.5'),
+    path.resolve(process.cwd(), '../../ACE-Step-1.5'),
+    // Compiled server (dist/services)
+    path.resolve(__dirname, '../../../ACE-Step-1.5'),
+    path.resolve(__dirname, '../../../../ACE-Step-1.5'),
+    // TS source layout (src/services)
+    path.resolve(__dirname, '../../../../../ACE-Step-1.5'),
+  ]);
+
+  // Keep previous behavior as final fallback for clearer error messaging downstream.
+  return resolved || path.resolve(__dirname, '../../../ACE-Step-1.5');
 }
 
 // Resolve Python path cross-platform (supports venv and portable installations)

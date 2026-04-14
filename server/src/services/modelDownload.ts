@@ -38,11 +38,25 @@ const PRESETS: ModelPreset[] = [
 const activeJobs = new Map<string, DownloadJobStatus>();
 
 function getAceStepDir(): string {
+  const firstExistingDir = (candidates: string[]): string | null => {
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    return null;
+  };
+
   const envPath = process.env.ACESTEP_PATH;
   if (envPath) {
-    return path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    const resolved = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+    if (existsSync(resolved)) return resolved;
   }
-  return path.resolve(process.cwd(), '../ACE-Step-1.5');
+
+  const resolved = firstExistingDir([
+    path.resolve(process.cwd(), '../ACE-Step-1.5'),
+    path.resolve(process.cwd(), '../../ACE-Step-1.5'),
+  ]);
+
+  return resolved || path.resolve(process.cwd(), '../ACE-Step-1.5');
 }
 
 function getCheckpointsDir(): string {

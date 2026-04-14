@@ -2,6 +2,21 @@
 
 ACE Desktop is a macOS Electron app that launches the ACE local stack and opens it in a native desktop window (no browser required).
 
+## Download Prebuilt App
+
+You can download ready-made builds from [GitHub Releases](https://github.com/robjlyons/ACE-Desktop/releases).
+
+Each release includes:
+
+- A `.dmg` installer for macOS
+- A `.zip` archive of the app bundle
+
+Install steps:
+
+1. Download the latest `.dmg`.
+2. Open the disk image.
+3. Drag `ACE Desktop.app` into `Applications`.
+
 It orchestrates:
 
 - `ACE-Step-1.5` API server

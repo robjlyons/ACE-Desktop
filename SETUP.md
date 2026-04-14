@@ -65,3 +65,15 @@ Artifacts are produced in `dist/`:
 - **Missing command**: install required tool (`uv`, `node`, or `npm`) and retry.
 - **Startup failure**: check logs in `ace-desktop/logs/`.
 - **Stale process state**: remove `ace-desktop/run/*.pid` and restart.
+
+## 7) Maintainer release checklist
+
+Use this flow to publish a downloadable app release:
+
+1. Ensure `ace-desktop/package.json` has the intended version.
+2. Commit and push all release-related changes to `main`.
+3. Create a tag matching the release workflow pattern, for example:
+   - `git tag v1.0.1`
+   - `git push origin v1.0.1`
+4. Wait for the `Release ACE Desktop` workflow to finish on GitHub Actions.
+5. Open the generated GitHub Release and confirm `.dmg` and `.zip` assets are attached.

@@ -19,6 +19,12 @@ Single-click local launcher for ACE-Step API + ACE UI on macOS.
 
 - Logs: `ace-launcher/logs/`
 - PID files: `ace-launcher/run/`
+- Automatic log hygiene runs on every `start.sh`:
+  - Deletes `.log` files older than `14` days (default)
+  - Truncates any `.log` file over `50 MB` (default)
+  - Customize via env vars:
+    - `ACE_LOG_RETENTION_DAYS`
+    - `ACE_LOG_MAX_BYTES`
 
 ## Install the clickable app
 

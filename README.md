@@ -2,6 +2,23 @@
 
 Single-click local launcher for ACE-Step API + ACE UI on macOS.
 
+## Download Prebuilt App
+
+You can download ready-made builds from [GitHub Releases](https://github.com/robjlyons/ACE-Desktop/releases).
+
+Each release includes:
+
+- A `.dmg` installer for macOS
+- A `.zip` archive of the app bundle
+
+Install steps:
+
+1. Download the latest `.dmg`.
+2. Open the disk image.
+3. Drag `ACE Desktop.app` into `Applications`.
+
+It orchestrates:
+
 ## What it starts
 
 - ACE-Step API on `127.0.0.1:8001`

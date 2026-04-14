@@ -1,41 +1,100 @@
-# ACE Launcher
+# ACE Desktop
 
-Single-click local launcher for ACE-Step API + ACE UI on macOS.
+ACE Desktop is a macOS Electron app that launches the ACE local stack and opens it in a native desktop window (no browser required).
 
-## What it starts
+## Download Prebuilt App
 
-- ACE-Step API on `127.0.0.1:8001`
-- UI backend on `127.0.0.1:3001`
-- UI frontend on `127.0.0.1:3000`
+You can download ready-made builds from [GitHub Releases](https://github.com/robjlyons/ACE-Desktop/releases).
 
-## Scripts
+Each release includes:
 
-- `start.sh`: Starts all services, waits for health, opens the app URL.
-- `stop.sh`: Stops all tracked services using PID files.
-- `check-health.sh`: Verifies API and UI ports are healthy.
-- `create-app.sh`: Creates clickable `.app` launchers in `/Applications`.
+- A `.zip` archive of the app bundle (`ACE Desktop.app`)
+- Some releases may also include a `.dmg` installer
 
-## Logs and runtime state
+Install steps:
 
-- Logs: `ace-launcher/logs/`
-- PID files: `ace-launcher/run/`
+1. Download the latest `.zip` asset from Releases.
+2. Unzip it and move `ACE Desktop.app` into `Applications`.
 
-## Install the clickable app
+It orchestrates:
 
-From `ace-launcher`:
+- `ACE-Step-1.5` API server
+- `ace-step-ui` backend
+- `ace-step-ui` frontend
 
-```bash
-chmod +x start.sh stop.sh check-health.sh create-app.sh
-./create-app.sh
+with startup checks, health checks, logs, and clean shutdown.
+
+## Requirements
+
+- macOS (Apple Silicon recommended)
+- Node.js + npm
+- `uv` installed and available in your `PATH`
+- Local copies of:
+  - `ACE-Step-1.5`
+  - `ace-step-ui`
+
+## Expected Folder Layout
+
+By default, this repo expects sibling folders:
+
+```text
+workspace/
+  ACE-Step-1.5/
+  ace-step-ui/
+  ace-desktop/
 ```
 
-This creates:
+If your layout is different, set overrides using `.env.example`.
 
-- `/Applications/ACE Launcher.app`
-- `/Applications/ACE Launcher Stop.app`
+## Install
 
-## Recovery
+```bash
+cd ace-desktop
+npm install
+```
 
-- If services appear stuck, run `./stop.sh`.
-- If PID files are stale, `start.sh` cleans stale entries automatically.
-- If ports are busy from external processes, stop those processes or change ports in scripts.
+## Launch (Development)
+
+```bash
+npm run dev
+```
+
+This opens the native ACE Desktop window and starts:
+
+- API: `127.0.0.1:8001`
+- Backend: `127.0.0.1:3001`
+- Frontend: `127.0.0.1:3000`
+
+## Build the macOS App
+
+```bash
+npm run build:mac
+```
+
+Build outputs are created in `dist/` (including `.dmg` and `.zip`).
+
+## Logs and Runtime State
+
+- Logs: `logs/`
+- PID files: `run/`
+
+## Configuration
+
+Copy `.env.example` to `.env` and set any overrides you need:
+
+- `ACE_WORKSPACE_ROOT`
+- `ACESTEP_DIR`
+- `ACE_STEP_UI_DIR`
+- `ACE_API_PORT`
+- `ACE_BACKEND_PORT`
+- `ACE_FRONTEND_PORT`
+
+## Troubleshooting
+
+- Port conflict errors: stop conflicting local services or change `ACE_*_PORT`.
+- Startup failures: check files under `logs/`.
+- Stale processes: remove `run/*.pid` and restart.
+
+## Additional Setup Notes
+
+See `SETUP.md` for full first-time setup and packaging guidance.

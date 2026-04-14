@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACE Desktop Loading</title>
+  <style>
+    :root {
+      --bg0: #0b1020;
+      --bg1: #171f3a;
+      --fg: #eef2ff;
+      --muted: #a7b0d8;
+      --accent: #63a6ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--fg);
+      background: radial-gradient(1200px 500px at 20% -20%, #263a7f 0%, transparent 55%),
+                  radial-gradient(900px 450px at 120% 120%, #153760 0%, transparent 50%),
+                  linear-gradient(140deg, var(--bg0), var(--bg1));
+      overflow: hidden;
+    }
+    .wrap {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      opacity: 1;
+      transition: opacity 260ms ease;
+    }
+    .wrap.fade-out { opacity: 0; }
+    .card {
+      width: min(560px, 90vw);
+      border-radius: 18px;
+      background: rgba(9, 14, 31, 0.62);
+      border: 1px solid rgba(137, 162, 255, 0.25);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 16px 60px rgba(0, 0, 0, 0.38);
+      padding: 28px 28px 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .logo img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      filter: brightness(1.15);
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 640;
+      letter-spacing: 0.2px;
+      margin: 0;
+    }
+    .subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status {
+      margin-top: 8px;
+      color: #cdd4f3;
+      font-size: 14px;
+      min-height: 22px;
+    }
+    .bar {
+      margin-top: 16px;
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+      position: relative;
+    }
+    .bar::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(99,166,255,0), var(--accent), rgba(99,166,255,0));
+      animation: slide 1.4s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0% { left: -45%; }
+      100% { left: 105%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="splashRoot">
+    <div class="card">
+      <div class="brand">
+        <div class="logo">
+          <img src="./acemusic-logo.svg" alt="ACE Music logo" />
+        </div>
+        <div>
+          <h1 class="title">ACE Desktop</h1>
+          <p class="subtitle">Starting local audio generation services</p>
+        </div>
+      </div>
+      <p class="status" id="statusText">Preparing API, backend, and editor window...</p>
+      <div class="bar"></div>
+    </div>
+  </div>
+  <script>
+    window.updateSplashStatus = (text) => {
+      const el = document.getElementById("statusText");
+      if (el) el.textContent = text;
+    };
+    window.fadeOutSplash = () => {
+      const root = document.getElementById("splashRoot");
+      if (root) root.classList.add("fade-out");
+    };
+  </script>
+</body>
+</html>

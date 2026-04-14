@@ -12,6 +12,7 @@ const UI_SERVER_DIR = path.join(UI_DIR, "server");
 
 const LOG_DIR = process.env.ACE_LOG_DIR || path.join(APP_DIR, "logs");
 const RUN_DIR = process.env.ACE_RUN_DIR || path.join(APP_DIR, "run");
+const MAX_SERVICE_LOG_BYTES = 5 * 1024 * 1024;
 
 const PORTS = {
   api: Number(process.env.ACE_API_PORT || 8001),
@@ -60,6 +61,23 @@ function logPath(name) {
   return path.join(LOG_DIR, `${name}.log`);
 }
 
+function logBackupPath(name) {
+  return path.join(LOG_DIR, `${name}.log.1`);
+}
+
+function rotateServiceLogIfNeeded(name) {
+  const currentLogPath = logPath(name);
+  if (!fs.existsSync(currentLogPath)) return;
+  const { size } = fs.statSync(currentLogPath);
+  if (size < MAX_SERVICE_LOG_BYTES) return;
+
+  const backupPath = logBackupPath(name);
+  if (fs.existsSync(backupPath)) {
+    fs.unlinkSync(backupPath);
+  }
+  fs.renameSync(currentLogPath, backupPath);
+}
+
 function isProcessAlive(pid) {
   if (!pid) return false;
   try {
@@ -96,6 +114,7 @@ function cleanupStalePid(name) {
 }
 
 function spawnLogged(name, command, args, options = {}) {
+  rotateServiceLogIfNeeded(name);
   const out = fs.createWriteStream(logPath(name), { flags: "a" });
   const child = spawn(command, args, {
     ...options,

@@ -77,6 +77,9 @@ Build outputs are created in `dist/` (including `.dmg` and `.zip`).
 
 - Logs: `logs/`
 - PID files: `run/`
+- Log rotation: each log is capped at 5 MB with one backup (`*.log.1`)
+  - App runtime errors: `logs/desktop.log` and `logs/desktop.log.1`
+  - Service logs: `logs/api.log`, `logs/backend.log`, `logs/frontend.log` (and matching `.log.1` backups)
 
 ## Configuration
 

@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const { app, BrowserWindow, dialog, Menu, shell } = require("electron");
 const processManager = require("./process-manager");
 
@@ -7,6 +8,31 @@ let splashWindow = null;
 let isQuitting = false;
 
 const APP_ICON_PATH = path.join(__dirname, "assets", "icon.icns");
+const APP_LOG_FILE = path.join(processManager.LOG_DIR, "desktop.log");
+const APP_LOG_FILE_BACKUP = path.join(processManager.LOG_DIR, "desktop.log.1");
+const MAX_APP_LOG_BYTES = 5 * 1024 * 1024;
+
+function rotateAppLogIfNeeded() {
+  if (!fs.existsSync(APP_LOG_FILE)) return;
+  const { size } = fs.statSync(APP_LOG_FILE);
+  if (size < MAX_APP_LOG_BYTES) return;
+
+  if (fs.existsSync(APP_LOG_FILE_BACKUP)) {
+    fs.unlinkSync(APP_LOG_FILE_BACKUP);
+  }
+  fs.renameSync(APP_LOG_FILE, APP_LOG_FILE_BACKUP);
+}
+
+function appendAppLog(message) {
+  try {
+    fs.mkdirSync(processManager.LOG_DIR, { recursive: true });
+    rotateAppLogIfNeeded();
+    const line = `[${new Date().toISOString()}] ${message}\n`;
+    fs.appendFileSync(APP_LOG_FILE, line, "utf8");
+  } catch {
+    // Avoid crashing while trying to record a crash.
+  }
+}
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -83,6 +109,7 @@ async function startAndOpenWindow() {
     createWindow(result.frontendUrl);
   } catch (error) {
     const message = String(error?.message || error);
+    appendAppLog(`Startup failed: ${message}`);
     dialog.showErrorBox(
       "ACE Desktop startup failed",
       `${message}\n\nCheck logs in:\n${processManager.LOG_DIR}`
@@ -106,6 +133,10 @@ function createAppMenu() {
         {
           label: "Open Logs Folder",
           click: () => shell.openPath(processManager.LOG_DIR),
+        },
+        {
+          label: "Open App Error Log",
+          click: () => shell.openPath(APP_LOG_FILE),
         },
         { type: "separator" },
         { role: "quit" },
@@ -151,4 +182,12 @@ app.on("before-quit", async (event) => {
     }
     app.quit();
   }
+});
+
+process.on("uncaughtException", (error) => {
+  appendAppLog(`Uncaught exception: ${error?.stack || String(error)}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  appendAppLog(`Unhandled rejection: ${reason?.stack || String(reason)}`);
 });

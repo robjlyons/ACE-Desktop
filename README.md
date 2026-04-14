@@ -9,14 +9,14 @@ You can download ready-made builds from [GitHub Releases](https://github.com/rob
 Each release includes:
 
 - A `.zip` archive of the app bundle (`ACE Desktop.app`)
-- A `.dmg` installer for macOS
+- Some releases may also include a `.dmg` installer
 
 Install steps:
 
 1. Download the latest `.zip` asset from Releases.
 2. Unzip it and move `ACE Desktop.app` into `Applications`.
-
-Releases are intended to be code-signed and notarized so macOS can verify the app.
+3. If macOS blocks launch, remove quarantine attributes:
+   `xattr -dr com.apple.quarantine "/Applications/ACE Desktop.app"`
 
 It orchestrates:
 

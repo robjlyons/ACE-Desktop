@@ -216,6 +216,20 @@ async function failIfPortBusy(port, label) {
   }
 }
 
+function getListeningPid(port) {
+  try {
+    const result = spawnSync("bash", ["-lc", `lsof -tiTCP:${port} -sTCP:LISTEN | awk 'NR==1 {print $1}'`], {
+      encoding: "utf8",
+    });
+    const value = (result.stdout || "").trim();
+    if (!value) return null;
+    const pid = Number(value);
+    return Number.isFinite(pid) ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
 function runningFromPidFiles() {
   const apiPid = readPid("api");
   const backendPid = readPid("backend");
@@ -248,6 +262,30 @@ async function startAll(options = {}) {
   if (runningFromPidFiles()) {
     onStatus("Services already running.");
     return { alreadyRunning: true, frontendUrl: URLS.frontend };
+  }
+
+  // If services are already running but PID files were not created by this process
+  // manager, reuse them instead of failing with "port already in use".
+  if (
+    await isPortOpen(PORTS.api) &&
+    await isPortOpen(PORTS.backend) &&
+    await isPortOpen(PORTS.frontend)
+  ) {
+    try {
+      const health = await fetch(URLS.apiHealth);
+      if (health.ok) {
+        const apiPid = getListeningPid(PORTS.api);
+        const backendPid = getListeningPid(PORTS.backend);
+        const frontendPid = getListeningPid(PORTS.frontend);
+        if (apiPid) writePid("api", apiPid);
+        if (backendPid) writePid("backend", backendPid);
+        if (frontendPid) writePid("frontend", frontendPid);
+        onStatus("Services already running.");
+        return { alreadyRunning: true, frontendUrl: URLS.frontend };
+      }
+    } catch {
+      // Continue with normal startup checks when health probe fails.
+    }
   }
 
   onStatus("Checking service ports...");

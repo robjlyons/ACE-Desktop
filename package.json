@@ -27,14 +27,11 @@
     ],
     "mac": {
       "icon": "assets/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
       "target": [
         "dmg",
         "zip"
       ],
-      "category": "public.app-category.music",
-      "notarize": true
+      "category": "public.app-category.music"
     }
   },
   "devDependencies": {

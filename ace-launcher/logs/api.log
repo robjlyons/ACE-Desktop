@@ -1,0 +1,31 @@
+Skipping import of cpp extensions due to incompatible torch version 2.11.0 for torchao version 0.16.0             Please see https://github.com/pytorch/ao/issues/2919 for more info
+W0414 08:53:10.392000 4236 torch/distributed/elastic/multiprocessing/redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+2026-04-14 08:53:11.477 | WARNING  | acestep.training.trainer:<module>:40 - bitsandbytes not installed. Using standard AdamW.
+INFO:     Started server process [4236]
+INFO:     Waiting for application startup.
+2026-04-14 08:53:12.546 | INFO     | acestep.gpu_config:get_gpu_config:846 - macOS MPS detected (10.7 GB unified memory, tier=tier4). Applying Apple Silicon optimizations: no compile, no quantization, mlx backend, no CPU offload.
+2026-04-14 08:53:12.553 | INFO     | acestep.gpu_config:get_gpu_config:846 - macOS MPS detected (10.7 GB unified memory, tier=tier4). Applying Apple Silicon optimizations: no compile, no quantization, mlx backend, no CPU offload.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+
+============================================================
+[API Server] GPU Configuration Detected:
+============================================================
+  GPU Memory: 10.67 GB
+  Configuration Tier: tier4
+  Max Duration (with LM): 480s
+  Max Duration (without LM): 600s
+  Max Batch Size (with LM): 2
+  Max Batch Size (without LM): 4
+  Default LM Init: True
+  Available LM Models: ['acestep-5Hz-lm-0.6B']
+============================================================
+
+[API Server] Models will be lazy-loaded on first request
+[API Server] Set ACESTEP_NO_INIT=false to load models at startup
+[API Server] Server is ready to accept requests (models not loaded yet)
+INFO:     127.0.0.1:50887 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [4236]

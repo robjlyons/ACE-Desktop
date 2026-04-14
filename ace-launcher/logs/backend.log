@@ -1,0 +1,17 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> ace-step-ui-server@1.0.0 build
+> tsc
+
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> ace-step-ui-server@1.0.0 start
+> node dist/index.js
+
+Running SQLite database migrations...
+Migrations completed successfully!
+ACE-Step UI Server running on http://localhost:3001
+Environment: development
+ACE-Step API: http://127.0.0.1:8001
+LAN access: http://192.168.1.162:3001
+LAN access: http://192.168.1.160:3001
